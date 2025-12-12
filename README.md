@@ -1,0 +1,26 @@
+# io-adapters
+
+
+# Repo map
+```
+├── .github
+│   └── workflows
+│       └── ci_tests.yaml
+├── .pytest_cache
+│   └── README.md
+├── src
+│   └── io_adapters
+│       ├── __init__.py
+│       ├── _adapters.py
+│       ├── _io_funcs.py
+│       └── _registries.py
+├── tests
+│   ├── __init__.py
+│   └── test_main.py
+├── .pre-commit-config.yaml
+├── README.md
+├── pyproject.toml
+├── ruff.toml
+└── uv.lock
+::
+```
