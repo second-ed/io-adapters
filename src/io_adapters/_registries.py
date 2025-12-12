@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Concatenate, ParamSpec
+from typing import Concatenate, ParamSpec, TypeAlias
 
 logger = logging.getLogger(__name__)
 
-type Data = "Data"
+Data: TypeAlias = "Data"
 P = ParamSpec("P")
 
 ReadFn = Callable[Concatenate[str | Path, P], Data]
