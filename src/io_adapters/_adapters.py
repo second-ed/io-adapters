@@ -48,12 +48,10 @@ class IoAdapter(ABC):
         return file_type.lower().strip()
 
     @abstractmethod
-    def get_guid(self) -> str:
-        pass
+    def get_guid(self) -> str: ...
 
     @abstractmethod
-    def get_datetime(self) -> datetime.datetime:
-        pass
+    def get_datetime(self) -> datetime.datetime: ...
 
 
 @attrs.define

@@ -16,7 +16,8 @@
 │       └── _registries.py
 ├── tests
 │   ├── __init__.py
-│   └── test_main.py
+│   ├── test_adapters.py
+│   └── test_adapters_apis.py
 ├── .pre-commit-config.yaml
 ├── README.md
 ├── pyproject.toml
