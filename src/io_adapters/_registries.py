@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 Data: TypeAlias = "Data"
 P = ParamSpec("P")
+
 ReadFn = Callable[Concatenate[str | Path, P], Data]
 WriteFn = Callable[Concatenate[Data, str | Path, P], None]
 
@@ -21,6 +22,7 @@ def register_read_fn(key: str) -> Callable:
     key = key.strip().lower()
 
     def wrapper(func: Callable) -> Callable:
+        logger.info(f"registering read fn {key = } {func = }")
         READ_FNS[key] = func
         return func
 
@@ -31,6 +33,7 @@ def register_write_fn(key: str) -> Callable:
     key = key.strip().lower()
 
     def wrapper(func: Callable) -> Callable:
+        logger.info(f"registering write fn {key = } {func = }")
         WRITE_FNS[key] = func
         return func
 
