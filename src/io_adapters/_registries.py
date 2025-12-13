@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from pathlib import Path
 from typing import Concatenate, ParamSpec, TypeAlias
 
@@ -18,8 +18,8 @@ READ_FNS: dict[str, ReadFn] = {}
 WRITE_FNS: dict[str, WriteFn] = {}
 
 
-def register_read_fn(key: str) -> Callable:
-    key = key.strip().lower()
+def register_read_fn(key: Hashable) -> Callable:
+    key = key.strip().lower() if isinstance(key, str) else key
 
     def wrapper(func: Callable) -> Callable:
         logger.info(f"registering read fn {key = } {func = }")
@@ -29,8 +29,8 @@ def register_read_fn(key: str) -> Callable:
     return wrapper
 
 
-def register_write_fn(key: str) -> Callable:
-    key = key.strip().lower()
+def register_write_fn(key: Hashable) -> Callable:
+    key = key.strip().lower() if isinstance(key, str) else key
 
     def wrapper(func: Callable) -> Callable:
         logger.info(f"registering write fn {key = } {func = }")

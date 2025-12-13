@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Hashable
 from pathlib import Path
 from types import MappingProxyType
 from uuid import uuid4
@@ -44,8 +45,8 @@ class IoAdapter(ABC):
             raise NotImplementedError(msg)
         return self._write_fns[file_type](data, path, **kwargs)
 
-    def _standardise_str(self, file_type: str) -> str:
-        return file_type.lower().strip()
+    def _standardise_str(self, file_type: Hashable) -> Hashable:
+        return file_type.lower().strip() if isinstance(file_type, str) else file_type
 
     @abstractmethod
     def get_guid(self) -> str: ...
@@ -65,14 +66,17 @@ class RealAdapter(IoAdapter):
 
 @attrs.define
 class FakeAdapter(IoAdapter):
-    files: dict = attrs.field(factory=dict, validator=instance_of(dict))
+    files: dict[str, Data] = attrs.field(factory=dict, validator=instance_of(dict))
 
     def __attrs_post_init__(self) -> None:
         self._read_fns = MappingProxyType(dict.fromkeys(READ_FNS, self._read_fn))
         self._write_fns = MappingProxyType(dict.fromkeys(WRITE_FNS, self._write_fn))
 
     def _read_fn(self, path: str) -> Data:
-        return self.files[path]
+        try:
+            return self.files[path]
+        except KeyError as e:
+            raise FileNotFoundError(f"{path = } {self.files = }") from e
 
     def _write_fn(self, data: Data, path: str) -> None:
         self.files[str(path)] = data
