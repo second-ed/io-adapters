@@ -8,6 +8,9 @@
 │       └── ci_tests.yaml
 ├── .pytest_cache
 │   └── README.md
+├── docs
+│   └── source
+│       └── conf.py
 ├── src
 │   └── io_adapters
 │       ├── __init__.py

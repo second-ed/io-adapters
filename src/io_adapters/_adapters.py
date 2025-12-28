@@ -42,6 +42,32 @@ class IoAdapter(ABC):
     )
 
     def read(self, path: str | Path, file_type: str, **kwargs: dict) -> Data:
+        """Read `path` using the registered function for `file_type`.
+
+        Raises:
+            NotImplementedError: If the given `file_type` does not have a registered function.
+
+        Usage
+        -----
+
+        Here the ``read_json`` function is registered with the ``register_read_fn`` decorator.
+
+        Then when the ``adapter`` object calls ``read`` with the ``"json"`` ``file_type`` it will use the registered function.
+
+        The ``key`` used to register the function doesn't have to be a string, as long as it's ``Hashable`` it can be used.
+
+        .. code-block:: python
+
+            from io_adapters import RealAdapter, register_read_fn
+
+            @register_read_fn("json")
+            def read_json(path: str | Path, **kwargs: dict) -> dict:
+                return json.loads(Path(path).read_text(), **kwargs)
+
+            adapter = RealAdapter()
+            data = adapter.read("some/path/to/file.json", "json")
+
+        """
         logger.info(f"{path = } {file_type = } {kwargs = }")
         file_type = standardise_key(file_type)
 
@@ -52,6 +78,57 @@ class IoAdapter(ABC):
         return self.read_fns[file_type](path, **kwargs)
 
     def write(self, data: Data, path: str | Path, file_type: str, **kwargs: dict) -> None:
+        """Write `data` to `path` using the registered function for `file_type`.
+
+        Raises:
+            NotImplementedError: If the given `file_type` does not have a registered function.
+
+        Usage
+        -----
+
+        Here the ``write_json`` function is registered with the ``register_write_fn`` decorator.
+
+        Then when the ``adapter`` object calls ``write`` with the ``WriteFormat.JSON`` ``file_type`` it will use the registered function.
+
+        .. code-block:: python
+
+            from enum import Enum
+            from io_adapters import RealAdapter, register_write_fn
+
+            class WriteFormat(Enum):
+                JSON = "json"
+
+            @register_write_fn(WriteFormat.JSON)
+            def write_json(data: dict, path: str | Path, **kwargs: dict) -> None:
+                path = Path(path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(data, **kwargs))
+
+            adapter = RealAdapter()
+            adapter.write({"a": 1}, "some/path/to/file.json", WriteFormat.JSON)
+
+            fake_adapter = FakeAdapter()
+            fake_adapter.write({"a": 1}, "some/path/to/file.json", WriteFormat.JSON)
+
+
+        The interfaces between the ``FakeAdapter`` and the ``RealAdapter`` means that the two can be passed in interchangeably, making testing much easier
+
+        .. code-block:: python
+
+            def some_usecase(adapter: IoAdapter, path: str) -> None:
+                # Some business logic
+
+                adapter.write({"a": 1}, , WriteFormat.JSON)
+
+            # in production inject the real adapter
+            some_usecase(RealAdapter(), "some/path/to/file.json")
+
+            # in testing inject the fake and assert that the fakes end state is as expected
+            fake = FakeAdapter()
+            some_usecase(fake, "some/path/to/file.json")
+            assert fake.files["some/path/to/file.json"] == {"a": 1}
+
+        """
         logger.info(f"{path = } {file_type = } {kwargs = }")
         file_type = standardise_key(file_type)
 

@@ -12,3 +12,4 @@ wheels/
 scrap/
 envs/
 .coverage
+.DS_Store
