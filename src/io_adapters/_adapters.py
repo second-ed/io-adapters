@@ -9,44 +9,57 @@ from types import MappingProxyType
 from uuid import uuid4
 
 import attrs
-from attrs.validators import instance_of
+from attrs.validators import deep_mapping, instance_of, is_callable
 
-from io_adapters._registries import READ_FNS, WRITE_FNS, Data
+from io_adapters._registries import READ_FNS, WRITE_FNS, Data, standardise_key
 
 logger = logging.getLogger(__name__)
 
 
 @attrs.define
 class IoAdapter(ABC):
-    _read_fns: MappingProxyType = attrs.field(
-        default=READ_FNS, validator=instance_of(MappingProxyType), converter=MappingProxyType
+    read_fns: MappingProxyType = attrs.field(
+        default=READ_FNS,
+        validator=[
+            deep_mapping(
+                key_validator=instance_of(Hashable),
+                value_validator=is_callable(),
+                mapping_validator=instance_of(MappingProxyType),
+            )
+        ],
+        converter=MappingProxyType,
     )
-    _write_fns: MappingProxyType = attrs.field(
-        default=WRITE_FNS, validator=instance_of(MappingProxyType), converter=MappingProxyType
+    write_fns: MappingProxyType = attrs.field(
+        default=WRITE_FNS,
+        validator=[
+            deep_mapping(
+                key_validator=instance_of(Hashable),
+                value_validator=is_callable(),
+                mapping_validator=instance_of(MappingProxyType),
+            )
+        ],
+        converter=MappingProxyType,
     )
 
     def read(self, path: str | Path, file_type: str, **kwargs: dict) -> Data:
         logger.info(f"{path = } {file_type = } {kwargs = }")
-        file_type = self._standardise_str(file_type)
+        file_type = standardise_key(file_type)
 
-        if file_type not in self._read_fns:
+        if file_type not in self.read_fns:
             msg = f"`read` is not implemented for {file_type}"
             logger.error(msg)
             raise NotImplementedError(msg)
-        return self._read_fns[file_type](path, **kwargs)
+        return self.read_fns[file_type](path, **kwargs)
 
     def write(self, data: Data, path: str | Path, file_type: str, **kwargs: dict) -> None:
         logger.info(f"{path = } {file_type = } {kwargs = }")
-        file_type = self._standardise_str(file_type)
+        file_type = standardise_key(file_type)
 
-        if file_type not in self._write_fns:
+        if file_type not in self.write_fns:
             msg = f"`write` is not implemented for {file_type}"
             logger.error(msg)
             raise NotImplementedError(msg)
-        return self._write_fns[file_type](data, path, **kwargs)
-
-    def _standardise_str(self, file_type: Hashable) -> Hashable:
-        return file_type.lower().strip() if isinstance(file_type, str) else file_type
+        return self.write_fns[file_type](data, path, **kwargs)
 
     @abstractmethod
     def get_guid(self) -> str: ...
@@ -69,8 +82,8 @@ class FakeAdapter(IoAdapter):
     files: dict[str, Data] = attrs.field(factory=dict, validator=instance_of(dict))
 
     def __attrs_post_init__(self) -> None:
-        self._read_fns = MappingProxyType(dict.fromkeys(READ_FNS, self._read_fn))
-        self._write_fns = MappingProxyType(dict.fromkeys(WRITE_FNS, self._write_fn))
+        self.read_fns = MappingProxyType(dict.fromkeys(self.read_fns.keys(), self._read_fn))
+        self.write_fns = MappingProxyType(dict.fromkeys(self.write_fns.keys(), self._write_fn))
 
     def _read_fn(self, path: str) -> Data:
         try:

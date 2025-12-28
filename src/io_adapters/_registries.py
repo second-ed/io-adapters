@@ -19,7 +19,7 @@ WRITE_FNS: dict[str, WriteFn] = {}
 
 
 def register_read_fn(key: Hashable) -> Callable:
-    key = key.strip().lower() if isinstance(key, str) else key
+    key = standardise_key(key)
 
     def wrapper(func: Callable) -> Callable:
         logger.info(f"registering read fn {key = } {func = }")
@@ -30,7 +30,7 @@ def register_read_fn(key: Hashable) -> Callable:
 
 
 def register_write_fn(key: Hashable) -> Callable:
-    key = key.strip().lower() if isinstance(key, str) else key
+    key = standardise_key(key)
 
     def wrapper(func: Callable) -> Callable:
         logger.info(f"registering write fn {key = } {func = }")
@@ -38,3 +38,7 @@ def register_write_fn(key: Hashable) -> Callable:
         return func
 
     return wrapper
+
+
+def standardise_key(key: Hashable) -> Hashable:
+    return key.strip().lower() if isinstance(key, str) else key

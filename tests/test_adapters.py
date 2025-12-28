@@ -50,6 +50,18 @@ def test_raises_when_given_invalid_write_file_type(file_type, expected_context):
 
 
 @pytest.mark.parametrize(
+    ("path", "expected_context"),
+    [
+        pytest.param(f"{REPO_ROOT}/tests/mock_data/mock.json", nullcontext()),
+        pytest.param("invalid", pytest.raises(FileNotFoundError)),
+    ],
+)
+def test_raises_when_given_invalid_file_path(path, expected_context):
+    with expected_context:
+        FakeAdapter(files={f"{REPO_ROOT}/tests/mock_data/mock.json": {"a": 0}}).read(path, "json")
+
+
+@pytest.mark.parametrize(
     ("adapter", "op"),
     [pytest.param(RealAdapter, operator.ne), pytest.param(FakeAdapter, operator.eq)],
 )
