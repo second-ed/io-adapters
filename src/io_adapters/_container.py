@@ -69,10 +69,20 @@ DEFAULT_CONTAINER = Container(domains=[])
 
 
 def add_domain(domain: Hashable) -> None:
+    """Add a domain to the default ``Container``
+
+    .. code-block:: python
+
+        from io_adapters import add_domain
+
+        add_domain("orders")
+
+    The ``orders`` domain is now added to the default ``Container`` and can have IO functions registered to it.
+    """
     return DEFAULT_CONTAINER.add_domain(domain)
 
 
-def register_domain_read_fn(domain: Hashable, key: Hashable) -> Callable:
+def register_domain_read_fn(domain: Hashable | list[Hashable], key: Hashable) -> Callable:
     return DEFAULT_CONTAINER.register_read_fn(domain, key)
 
 
