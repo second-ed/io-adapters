@@ -5,7 +5,8 @@
 ```
 ├── .github
 │   └── workflows
-│       └── ci_tests.yaml
+│       ├── ci_tests.yaml
+│       └── publish.yaml
 ├── .pytest_cache
 │   └── README.md
 ├── docs
