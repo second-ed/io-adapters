@@ -85,11 +85,13 @@ def add_domain(domain: Hashable) -> None:
 
 
 def register_domain_read_fn(domain: Hashable, key: Hashable) -> Callable:
-    """Register a read function to a domain.
+    """Register a read function to a domain in the default ``Container``.
 
     Decorators can be stacked to register the same function to multiple domains.
 
     .. code-block:: python
+
+        from io_adapters import add_domain, register_domain_read_fn
 
         add_domain("orders")
 
@@ -108,12 +110,59 @@ def register_domain_read_fn(domain: Hashable, key: Hashable) -> Callable:
 
 
 def register_domain_write_fn(domain: Hashable, key: Hashable) -> Callable:
+    """Register a write function to a domain in the default ``Container``.
+
+    Decorators can be stacked to register the same function to multiple domains.
+
+    .. code-block:: python
+
+        from io_adapters import add_domain, register_domain_write_fn
+
+        add_domain("orders")
+
+        @register_domain_write_fn("orders", "str")
+        def write_str(data: dict, path: str | Path, **kwargs: dict) -> None:
+            ...
+
+        add_domain("payment")
+
+        @register_domain_write_fn("orders", "json")
+        @register_domain_write_fn("payment", "json")
+        def write_json(data: dict, path: str | Path, **kwargs: dict) -> None:
+            ...
+    """
     return DEFAULT_CONTAINER.register_write_fn(domain, key)
 
 
 def get_real_adapter(domain: Hashable) -> RealAdapter:
+    """Get a ``RealAdapter`` for the given domain.
+
+    The returned adapter will have all of the functions registered to that domain.
+
+    .. code-block:: python
+
+        from io_adapters import RealAdapter, get_real_adapter
+
+        orders_adapter: RealAdapter = get_real_adapter("orders")
+
+    The ``RealAdapter`` that is assigned to the ``orders_adapter`` variable will have all of the registered read and write I/O functions.
+
+    """
     return DEFAULT_CONTAINER.get_real_adapter(domain)
 
 
-def get_fake_adapter(domain: Hashable, files: dict | None = None) -> RealAdapter:
+def get_fake_adapter(domain: Hashable, files: dict | None = None) -> FakeAdapter:
+    """Get a ``FakeAdapter`` for the given domain.
+
+    The returned adapter will have all of the functions registered to that domain.
+
+    .. code-block:: python
+
+        from io_adapters import FakeAdapter, get_fake_adapter
+
+        orders_adapter: FakeAdapter = get_fake_adapter("orders")
+
+    The ``FakeAdapter`` that is assigned to the ``orders_adapter`` variable will have fake representations for all of the registered read and write I/O functions.
+
+    """
     return DEFAULT_CONTAINER.get_fake_adapter(domain, files)
