@@ -8,6 +8,7 @@ from io_adapters._container import (
     register_domain_write_fn,
 )
 from io_adapters._io_funcs import read_json, write_json  # noqa: F401
+from io_adapters._registries import register_read_fn, register_write_fn
 
 __all__ = [
     "Container",
@@ -19,4 +20,6 @@ __all__ = [
     "get_real_adapter",
     "register_domain_read_fn",
     "register_domain_write_fn",
+    "register_read_fn",
+    "register_write_fn",
 ]
