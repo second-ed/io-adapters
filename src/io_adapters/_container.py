@@ -164,5 +164,19 @@ def get_fake_adapter(domain: Hashable, files: dict | None = None) -> FakeAdapter
 
     The ``FakeAdapter`` that is assigned to the ``orders_adapter`` variable will have fake representations for all of the registered read and write I/O functions.
 
+    This can optionally be given a dictionary of files to setup the initial state for testing. An example of how this could be used is below:
+
+    .. code-block:: python
+
+        from io_adapters import FakeAdapter, get_fake_adapter
+
+        starting_files = {"path/to/data.json": {"a": 0, "b": 1}}
+
+        orders_adapter: FakeAdapter = get_fake_adapter("orders", starting_files)
+
+        some_orders_usecase(adapter=orders_adapter, data_path="path/to/data.json")
+
+        assert orders_adapter.files["path/to/modified_data.json"] == {"a": 1, "b": 2}
+
     """
     return DEFAULT_CONTAINER.get_fake_adapter(domain, files)
