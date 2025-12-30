@@ -1,6 +1,9 @@
 io-adapters documentation
 =============================
 
+Motivation
+----------
+
 Testing use cases that involve I/O is inherently difficult because they depend on external state and side effects. However, combining Dependency Injection (DI) with the Repository pattern significantly reduces this complexity.
 
 By substituting real I/O implementations with fakes that simulate their behaviour, stateful interactions can be captured entirely in memory. This allows changes to the external world to be accumulated deterministically and the final state to be asserted directly, without relying on real filesystems, networks, or services.

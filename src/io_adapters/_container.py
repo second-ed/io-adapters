@@ -78,11 +78,32 @@ def add_domain(domain: Hashable) -> None:
         add_domain("orders")
 
     The ``orders`` domain is now added to the default ``Container`` and can have IO functions registered to it.
+
+    Relying on deliberate registering of a domain avoids situations where a typo could register a function to a non-existent domain: e.g. ``'ordesr'`` instead of the intended ``'orders'``.
     """
     return DEFAULT_CONTAINER.add_domain(domain)
 
 
-def register_domain_read_fn(domain: Hashable | list[Hashable], key: Hashable) -> Callable:
+def register_domain_read_fn(domain: Hashable, key: Hashable) -> Callable:
+    """Register a read function to a domain.
+
+    Decorators can be stacked to register the same function to multiple domains.
+
+    .. code-block:: python
+
+        add_domain("orders")
+
+        @register_domain_read_fn("orders", "str")
+        def read_str(path: str | Path, **kwargs: dict) -> str:
+            ...
+
+        add_domain("payment")
+
+        @register_domain_read_fn("orders", "json")
+        @register_domain_read_fn("payment", "json")
+        def read_json(path: str | Path, **kwargs: dict) -> dict:
+            ...
+    """
     return DEFAULT_CONTAINER.register_read_fn(domain, key)
 
 
