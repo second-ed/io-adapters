@@ -14,7 +14,7 @@ However, creating these fakes can be time consuming and result in a maintenance 
 
 This is where ``io-adapters`` can help. Simply register each I/O function with one of the register decorators and the functionality will be added to the ``RealAdapter`` object, on top of that a stub will be added to the ``FakeAdapter`` object too so you can pass in either to your usecase and the functionality will work.
 
-.. automodule:: io-adapters
+.. automodule:: io_adapters
     :members:
     :undoc-members:
     :imported-members:
