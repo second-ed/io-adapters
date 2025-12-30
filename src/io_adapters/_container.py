@@ -110,6 +110,13 @@ class Container:
         The ``orders`` domain is now added to the ``Container`` and can have IO functions registered to it.
 
         Relying on deliberate registering of a domain avoids situations where a typo could register a function to a non-existent domain: e.g. ``'ordesr'`` instead of the intended ``'orders'``.
+
+        Domains can also be passed into the Container on initialisation.
+
+        .. code-block:: python
+
+            container = Container(domains=["orders"])
+
         """
         self.domain_fns[domain] = {_FnType.READ: {}, _FnType.WRITE: {}}
 
@@ -122,14 +129,12 @@ class Container:
 
             from io_adapters import Container
 
-            container = Container()
-            container.add_domain("orders")
+            container = Container(domains=["orders", "payment"])
 
             @container.register_domain_read_fn("orders", "str")
             def read_str(path: str | Path, **kwargs: dict) -> str:
                 ...
 
-            container.add_domain("payment")
 
             @container.register_domain_read_fn("orders", "json")
             @container.register_domain_read_fn("payment", "json")
@@ -155,8 +160,7 @@ class Container:
 
             from io_adapters import Container
 
-            container = Container()
-            container.add_domain("orders")
+            container = Container(domains=["orders"])
 
             @container.register_domain_write_fn("orders", "str")
             def write_str(data: dict, path: str | Path, **kwargs: dict) -> None:
@@ -188,9 +192,7 @@ class Container:
 
             from io_adapters import RealAdapter, Container
 
-            container = Container()
-            container.add_domain("orders")
-
+            container = Container(domains=["orders"])
             orders_adapter: RealAdapter = container.get_real_adapter("orders")
 
         The ``RealAdapter`` that is assigned to the ``orders_adapter`` variable will have all of the registered read and write I/O functions.
@@ -210,8 +212,7 @@ class Container:
 
             from io_adapters import FakeAdapter, Container
 
-            container = Container()
-            container.add_domain("orders")
+            container = Container(domains=["orders"])
             orders_adapter: FakeAdapter = container.get_fake_adapter("orders")
 
         The ``FakeAdapter`` that is assigned to the ``orders_adapter`` variable will have fake representations for all of the registered read and write I/O functions.
@@ -224,8 +225,7 @@ class Container:
 
             starting_files = {"path/to/data.json": {"a": 0, "b": 1}}
 
-            container = Container()
-            container.add_domain("orders")
+            container = Container(domains=["orders"])
             orders_adapter: FakeAdapter = container.get_fake_adapter("orders", starting_files)
 
             some_orders_usecase(adapter=orders_adapter, data_path="path/to/data.json")
