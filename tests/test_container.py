@@ -15,7 +15,7 @@ from io_adapters import (
 
 @pytest.mark.parametrize(
     ("domain", "expected_read_fns", "expected_write_fns"),
-    [pytest.param("orders", ["str"], []), pytest.param("payment", [], ["json", "str"])],
+    [pytest.param("orders", ["str"], ["str"]), pytest.param("payment", [], ["json", "str"])],
 )
 def test_container(domain, expected_read_fns, expected_write_fns):
     add_domain("orders")
@@ -26,6 +26,7 @@ def test_container(domain, expected_read_fns, expected_write_fns):
 
     add_domain("payment")
 
+    @register_domain_write_fn("orders", "str")
     @register_domain_write_fn("payment", "str")
     def write_str(data: dict, path: str | Path, **kwargs: dict) -> None:
         pass
