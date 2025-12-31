@@ -118,7 +118,7 @@ class IoAdapter(ABC):
             def some_usecase(adapter: IoAdapter, path: str) -> None:
                 # Some business logic
 
-                adapter.write({"a": 1}, , WriteFormat.JSON)
+                adapter.write({"a": 1}, path, WriteFormat.JSON)
 
             # in production inject the real adapter
             some_usecase(RealAdapter(), "some/path/to/file.json")

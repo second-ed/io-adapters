@@ -7,6 +7,7 @@ import pytest
 from src.io_adapters import FakeAdapter, RealAdapter
 
 REPO_ROOT = Path(__file__).parents[1]
+MOCK_DATA_PATH = f"{REPO_ROOT}/tests/mock_data/mock.json"
 
 
 @pytest.mark.parametrize(
@@ -17,10 +18,9 @@ REPO_ROOT = Path(__file__).parents[1]
     ],
 )
 def test_adapter(adapter, data, file_type):
-    path = f"{REPO_ROOT}/tests/mock_data/mock.json"
     io = adapter()
-    io.write(data, path, file_type)
-    assert io.read(path, file_type) == data
+    io.write(data, MOCK_DATA_PATH, file_type)
+    assert io.read(MOCK_DATA_PATH, file_type) == data
 
 
 @pytest.mark.parametrize(
@@ -32,8 +32,7 @@ def test_adapter(adapter, data, file_type):
 )
 def test_raises_when_given_invalid_read_file_type(file_type, expected_context):
     with expected_context:
-        path = f"{REPO_ROOT}/tests/mock_data/mock.json"
-        RealAdapter().read(path, file_type)
+        RealAdapter().read(MOCK_DATA_PATH, file_type)
 
 
 @pytest.mark.parametrize(
@@ -45,20 +44,19 @@ def test_raises_when_given_invalid_read_file_type(file_type, expected_context):
 )
 def test_raises_when_given_invalid_write_file_type(file_type, expected_context):
     with expected_context:
-        path = f"{REPO_ROOT}/tests/mock_data/mock.json"
-        FakeAdapter().write({"a": 0}, path, file_type)
+        FakeAdapter().write({"a": 0}, MOCK_DATA_PATH, file_type)
 
 
 @pytest.mark.parametrize(
     ("path", "expected_context"),
     [
-        pytest.param(f"{REPO_ROOT}/tests/mock_data/mock.json", nullcontext()),
+        pytest.param(MOCK_DATA_PATH, nullcontext()),
         pytest.param("invalid", pytest.raises(FileNotFoundError)),
     ],
 )
 def test_raises_when_given_invalid_file_path(path, expected_context):
     with expected_context:
-        FakeAdapter(files={f"{REPO_ROOT}/tests/mock_data/mock.json": {"a": 0}}).read(path, "json")
+        FakeAdapter(files={MOCK_DATA_PATH: {"a": 0}}).read(path, "json")
 
 
 @pytest.mark.parametrize(
