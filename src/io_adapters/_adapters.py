@@ -2,23 +2,22 @@ from __future__ import annotations
 
 import datetime
 import logging
-from abc import ABC, abstractmethod
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from pathlib import Path
 from types import MappingProxyType
-from uuid import uuid4
 
 import attrs
-from attrs.validators import deep_mapping, instance_of, is_callable
+from attrs.validators import deep_mapping, instance_of, is_callable, optional
 
-from io_adapters._registries import READ_FNS, WRITE_FNS, Data, standardise_key
+from io_adapters._clock import default_datetime, default_guid, fake_datetime, fake_guid
+from io_adapters._registries import READ_FNS, WRITE_FNS, Data, ReadFn, WriteFn, standardise_key
 
 logger = logging.getLogger(__name__)
 
 
 @attrs.define
-class IoAdapter(ABC):
-    read_fns: MappingProxyType = attrs.field(
+class IoAdapter:
+    read_fns: MappingProxyType[Hashable, ReadFn] = attrs.field(
         default=READ_FNS,
         validator=[
             deep_mapping(
@@ -29,7 +28,7 @@ class IoAdapter(ABC):
         ],
         converter=MappingProxyType,
     )
-    write_fns: MappingProxyType = attrs.field(
+    write_fns: MappingProxyType[Hashable, WriteFn] = attrs.field(
         default=WRITE_FNS,
         validator=[
             deep_mapping(
@@ -40,8 +39,12 @@ class IoAdapter(ABC):
         ],
         converter=MappingProxyType,
     )
+    guid_fn: Callable[[], str] = attrs.field(default=None, validator=optional(is_callable()))
+    datetime_fn: Callable[[], datetime.datetime] = attrs.field(
+        default=None, validator=optional(is_callable())
+    )
 
-    def read(self, path: str | Path, file_type: str, **kwargs: dict) -> Data:
+    def read(self, path: str | Path, file_type: Hashable, **kwargs: dict) -> Data:
         """Read `path` using the registered function for `file_type`.
 
         Raises:
@@ -77,7 +80,7 @@ class IoAdapter(ABC):
             raise NotImplementedError(msg)
         return self.read_fns[file_type](path, **kwargs)
 
-    def write(self, data: Data, path: str | Path, file_type: str, **kwargs: dict) -> None:
+    def write(self, data: Data, path: str | Path, file_type: Hashable, **kwargs: dict) -> None:
         """Write `data` to `path` using the registered function for `file_type`.
 
         Raises:
@@ -118,7 +121,7 @@ class IoAdapter(ABC):
             def some_usecase(adapter: IoAdapter, path: str) -> None:
                 # Some business logic
 
-                adapter.write({"a": 1}, , WriteFormat.JSON)
+                adapter.write({"a": 1}, path, WriteFormat.JSON)
 
             # in production inject the real adapter
             some_usecase(RealAdapter(), "some/path/to/file.json")
@@ -138,20 +141,18 @@ class IoAdapter(ABC):
             raise NotImplementedError(msg)
         return self.write_fns[file_type](data, path, **kwargs)
 
-    @abstractmethod
-    def get_guid(self) -> str: ...
+    def get_guid(self) -> str:
+        return self.guid_fn()
 
-    @abstractmethod
-    def get_datetime(self) -> datetime.datetime: ...
+    def get_datetime(self) -> datetime.datetime:
+        return self.datetime_fn()
 
 
 @attrs.define
 class RealAdapter(IoAdapter):
-    def get_guid(self) -> str:
-        return str(uuid4())
-
-    def get_datetime(self) -> datetime.datetime:
-        return datetime.datetime.now(datetime.UTC)
+    def __attrs_post_init__(self) -> None:
+        self.guid_fn = self.guid_fn or default_guid
+        self.datetime_fn = self.datetime_fn or default_datetime
 
 
 @attrs.define
@@ -161,6 +162,8 @@ class FakeAdapter(IoAdapter):
     def __attrs_post_init__(self) -> None:
         self.read_fns = MappingProxyType(dict.fromkeys(self.read_fns.keys(), self._read_fn))
         self.write_fns = MappingProxyType(dict.fromkeys(self.write_fns.keys(), self._write_fn))
+        self.guid_fn = self.guid_fn or fake_guid
+        self.datetime_fn = self.datetime_fn or fake_datetime
 
     def _read_fn(self, path: str) -> Data:
         try:
@@ -172,7 +175,7 @@ class FakeAdapter(IoAdapter):
         self.files[str(path)] = data
 
     def get_guid(self) -> str:
-        return "abc-123"
+        return self.guid_fn()
 
     def get_datetime(self) -> datetime.datetime:
-        return datetime.datetime(2025, 1, 1, 12, tzinfo=datetime.UTC)
+        return self.datetime_fn()

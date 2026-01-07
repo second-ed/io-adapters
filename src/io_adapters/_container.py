@@ -203,7 +203,7 @@ class Container:
             write_fns=self.domain_fns[domain][_FnType.WRITE],
         )
 
-    def get_fake_adapter(self, domain: Hashable, files: dict | None = None) -> RealAdapter:
+    def get_fake_adapter(self, domain: Hashable, files: dict | None = None) -> FakeAdapter:
         """Get a ``FakeAdapter`` for the given domain.
 
         The returned adapter will have all of the functions registered to that domain.

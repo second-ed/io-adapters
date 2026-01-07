@@ -1,11 +1,13 @@
 [project]
 name = "io-adapters"
 version = "0.1.0"
-description = "Add your description here"
+description = "Dependency Injection Adapters"
 readme = "README.md"
 authors = [
     { name = "ed cuss", email = "edcussmusic@gmail.com" }
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "attrs>=25.4.0",
@@ -24,4 +26,9 @@ dev = [
     "repo-mapper-rs>=0.3.0",
     "ruff>=0.14.9",
     "sphinx>=9.0.4",
+    "ty>=0.0.9",
 ]
+
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = ["src/io_adapters/_io_funcs.py"]
