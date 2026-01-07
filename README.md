@@ -28,6 +28,7 @@ This is where `io-adapters` can help. Simply register each I/O function with one
 │   └── io_adapters
 │       ├── __init__.py
 │       ├── _adapters.py
+│       ├── _clock.py
 │       ├── _container.py
 │       ├── _io_funcs.py
 │       └── _registries.py

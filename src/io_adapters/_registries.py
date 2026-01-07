@@ -14,8 +14,8 @@ ReadFn = Callable[Concatenate[str | Path, P], Data]
 WriteFn = Callable[Concatenate[Data, str | Path, P], None]
 
 
-READ_FNS: dict[str, ReadFn] = {}
-WRITE_FNS: dict[str, WriteFn] = {}
+READ_FNS: dict[Hashable, ReadFn] = {}
+WRITE_FNS: dict[Hashable, WriteFn] = {}
 
 
 def register_read_fn(key: Hashable) -> Callable:
