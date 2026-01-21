@@ -8,6 +8,8 @@ repos:
       - id: check-yaml
       - id: pretty-format-json
         args: ["--autofix", "--no-sort-keys"]
+      - id: name-tests-test
+        args: ["--pytest-test-first"]
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.5.26
     hooks:
