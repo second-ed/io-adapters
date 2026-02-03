@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>io-adapters documentation &#8212; io-adapters 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=2bf1fcf8" />
+    
+    <script src="_static/documentation_options.js?v=cb975c41"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">io-adapters 2025 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">io-adapters documentation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="io-adapters-documentation">
+<h1>io-adapters documentation<a class="headerlink" href="#io-adapters-documentation" title="Link to this heading">¶</a></h1>
+<section id="motivation">
+<h2>Motivation<a class="headerlink" href="#motivation" title="Link to this heading">¶</a></h2>
+<p>Testing use cases that involve I/O is inherently difficult because they depend on:</p>
+<ul class="simple">
+<li><p>external state (filesystems, databases, services)</p></li>
+<li><p>side effects that are hard to observe directly</p></li>
+<li><p>slow or flaky infrastructure</p></li>
+</ul>
+<p>A common mitigation is to combine:</p>
+<ul class="simple">
+<li><p>Dependency Injection (DI)</p></li>
+<li><p>The Repository / Adapter pattern</p></li>
+</ul>
+<p>This allows business logic to depend on an abstract interface rather than concrete I/O.</p>
+<p>However, in practice this usually requires:</p>
+<ul class="simple">
+<li><p>writing and maintaining bespoke fake implementations</p></li>
+<li><p>keeping fake behaviour in sync with real implementations</p></li>
+<li><p>duplicating boilerplate across domains</p></li>
+</ul>
+<p>For small or medium-sized projects, this overhead can outweigh the benefits.</p>
+<p>Simply register each I/O function with one of the register decorators and the functionality will be added to the <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code> object, on top of that a stub will be added to the <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> object too so you can pass in either to your usecase and the functionality will work.</p>
+</section>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">IoAdapter</span><span class="p">,</span>
+    <span class="n">RealAdapter</span><span class="p">,</span>
+    <span class="n">add_domain</span><span class="p">,</span>
+    <span class="n">get_fake_adapter</span><span class="p">,</span>
+    <span class="n">get_real_adapter</span><span class="p">,</span>
+    <span class="n">register_domain_read_fn</span><span class="p">,</span>
+    <span class="n">register_domain_write_fn</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="c1"># you can use any hashable object to register an I/O function</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FileFormat</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">JSON</span> <span class="o">=</span> <span class="s2">&quot;json&quot;</span>
+
+
+<span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+<span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_str</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="c1"># stack decorators to register the same function to multiple domains</span>
+<span class="nd">@register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+<span class="nd">@register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">,</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_json</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_str</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+<span class="nd">@register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">,</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_json</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">some_usecase</span><span class="p">(</span><span class="n">adapter</span><span class="p">:</span> <span class="n">IoAdapter</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">adapter</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+    <span class="c1"># Some business logic</span>
+    <span class="n">new_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">_new.json&quot;</span>
+
+    <span class="n">adapter</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="n">new_path</span><span class="p">,</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+
+
+<span class="c1"># in production inject the real adapter</span>
+<span class="n">orders_adapter</span><span class="p">:</span> <span class="n">RealAdapter</span> <span class="o">=</span> <span class="n">get_real_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+<span class="n">some_usecase</span><span class="p">(</span><span class="n">orders_adapter</span><span class="p">,</span> <span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">)</span>
+
+
+<span class="c1"># in testing inject the fake which has all the same funcitonality as the</span>
+<span class="c1"># `RealAdapter` and assert that the fakes end state is as expected</span>
+<span class="n">fake_adapter</span> <span class="o">=</span> <span class="n">get_fake_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+<span class="n">some_usecase</span><span class="p">(</span><span class="n">fake_adapter</span><span class="p">,</span> <span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">fake_adapter</span><span class="o">.</span><span class="n">files</span><span class="p">[</span><span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+</pre></div>
+</div>
+<dl class="py class" id="module-io_adapters">
+<dt class="sig sig-object py" id="io_adapters.Container">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">Container</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domains</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Iterable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#io_adapters.Container" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Registry and factory for domain-scoped I/O adapters.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">Container</span></code> provides a central registry for I/O functions that are
+grouped by domain. Each domain has isolated access to a specific set of
+read and write functions, allowing different parts of an application to
+share common I/O implementations without violating domain boundaries.</p>
+<section id="domain-isolation">
+<h3>Domain isolation<a class="headerlink" href="#domain-isolation" title="Link to this heading">¶</a></h3>
+<p>In some cases, different domains need isolated access to the same underlying
+functionality.</p>
+<p>For example:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>The <code class="docutils literal notranslate"><span class="pre">orders</span></code> domain may:</dt><dd><ul>
+<li><p>read <code class="docutils literal notranslate"><span class="pre">json</span></code> files</p></li>
+<li><p>write <code class="docutils literal notranslate"><span class="pre">parquet</span></code> files</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>The <code class="docutils literal notranslate"><span class="pre">reporting</span></code> domain may:</dt><dd><ul>
+<li><p>read from a database</p></li>
+<li><p>write <code class="docutils literal notranslate"><span class="pre">parquet</span></code> files</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>While both domains can reuse a shared <code class="docutils literal notranslate"><span class="pre">write_parquet</span></code> implementation,
+they must not have access to each other’s read capabilities. The
+<code class="docutils literal notranslate"><span class="pre">Container</span></code> enforces this isolation by maintaining separate registries
+per domain.</p>
+</section>
+<section id="design">
+<h3>Design<a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">Container</span></code>:</p>
+<ul class="simple">
+<li><p>Maintains a mapping of domains to read/write function registries</p></li>
+<li><p>Provides decorator-style registration APIs for read and write functions</p></li>
+<li><p>Acts as a factory for creating domain-specific adapters</p></li>
+</ul>
+<p>Two adapter types are supported:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code> for production usage</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> for testing, allowing stateful simulation of I/O</p></li>
+</ul>
+</section>
+<section id="testing">
+<h3>Testing<a class="headerlink" href="#testing" title="Link to this heading">¶</a></h3>
+<p>Using a <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> makes it possible to simulate external I/O while
+keeping all state in memory. This allows tests to:</p>
+<ul class="simple">
+<li><p>Accumulate state across reads and writes</p></li>
+<li><p>Assert against the final external state</p></li>
+<li><p>Avoid filesystem or network dependencies entirely</p></li>
+</ul>
+<p>This results in tests that are faster, deterministic, and easier to reason
+about.</p>
+</section>
+<section id="usage-overview">
+<h3>Usage overview<a class="headerlink" href="#usage-overview" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Define a <code class="docutils literal notranslate"><span class="pre">Container</span></code> with one or more domains</p></li>
+<li><p>Register read/write functions per domain</p></li>
+<li><p>Request either a real or fake adapter for a given domain</p></li>
+<li><p>Inject the adapter into application code</p></li>
+</ol>
+<dl class="simple">
+<dt>The <code class="docutils literal notranslate"><span class="pre">Container</span></code> itself is intentionally simple and does not perform any</dt><dd><p>I/O; it only wires together domain-specific capabilities.</p>
+</dd>
+</dl>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Usage of a custom <code class="docutils literal notranslate"><span class="pre">Container</span></code> is only recommended if you have a complex set of domains and need multiple <a href="#id1"><span class="problematic" id="id2">``</span></a>Container``s initialised at the same time.</p>
+<p>If you have a simple set of domains you can use the convenience functions with the same names as the <code class="docutils literal notranslate"><span class="pre">Container</span></code> methods which will be added to the default <code class="docutils literal notranslate"><span class="pre">Container</span></code> which is an instance you don’t need to initialise yourself.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.Container.add_domain">
+<span class="sig-name descname"><span class="pre">add_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#io_adapters.Container.add_domain" title="Link to this definition">¶</a></dt>
+<dd><p>Add a domain to a <code class="docutils literal notranslate"><span class="pre">Container</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span>
+
+<span class="n">container</span> <span class="o">=</span> <span class="n">Container</span><span class="p">()</span>
+<span class="n">container</span><span class="o">.</span><span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">orders</span></code> domain is now added to the <code class="docutils literal notranslate"><span class="pre">Container</span></code> and can have IO functions registered to it.</p>
+<p>Relying on deliberate registering of a domain avoids situations where a typo could register a function to a non-existent domain: e.g. <code class="docutils literal notranslate"><span class="pre">'ordesr'</span></code> instead of the intended <code class="docutils literal notranslate"><span class="pre">'orders'</span></code>.</p>
+<p>Domains can also be passed into the Container on initialisation.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">container</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="n">domains</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;orders&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="io_adapters.Container.domain_fns">
+<span class="sig-name descname"><span class="pre">domain_fns</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">Hashable</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">Hashable</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#io_adapters.Container.domain_fns" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="io_adapters.Container.domains">
+<span class="sig-name descname"><span class="pre">domains</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Iterable</span></span><a class="headerlink" href="#io_adapters.Container.domains" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.Container.get_fake_adapter">
+<span class="sig-name descname"><span class="pre">get_fake_adapter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">files</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="io_adapters.html#io_adapters.FakeAdapter" title="io_adapters._adapters.FakeAdapter"><span class="pre">FakeAdapter</span></a></span></span><a class="headerlink" href="#io_adapters.Container.get_fake_adapter" title="Link to this definition">¶</a></dt>
+<dd><p>Get a <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> for the given domain.</p>
+<p>The returned adapter will have all of the functions registered to that domain.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeAdapter</span><span class="p">,</span> <span class="n">Container</span>
+
+<span class="n">container</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="n">domains</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;orders&quot;</span><span class="p">])</span>
+<span class="n">orders_adapter</span><span class="p">:</span> <span class="n">FakeAdapter</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">get_fake_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> that is assigned to the <code class="docutils literal notranslate"><span class="pre">orders_adapter</span></code> variable will have fake representations for all of the registered read and write I/O functions.</p>
+<p>This can optionally be given a dictionary of files to setup the initial state for testing. An example of how this could be used is below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeAdapter</span><span class="p">,</span> <span class="n">Container</span>
+
+<span class="n">starting_files</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;path/to/data.json&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}}</span>
+
+<span class="n">container</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="n">domains</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;orders&quot;</span><span class="p">])</span>
+<span class="n">orders_adapter</span><span class="p">:</span> <span class="n">FakeAdapter</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">get_fake_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="n">starting_files</span><span class="p">)</span>
+
+<span class="n">some_orders_usecase</span><span class="p">(</span><span class="n">adapter</span><span class="o">=</span><span class="n">orders_adapter</span><span class="p">,</span> <span class="n">data_path</span><span class="o">=</span><span class="s2">&quot;path/to/data.json&quot;</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">orders_adapter</span><span class="o">.</span><span class="n">files</span><span class="p">[</span><span class="s2">&quot;path/to/modified_data.json&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.Container.get_real_adapter">
+<span class="sig-name descname"><span class="pre">get_real_adapter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="io_adapters.html#io_adapters.RealAdapter" title="io_adapters._adapters.RealAdapter"><span class="pre">RealAdapter</span></a></span></span><a class="headerlink" href="#io_adapters.Container.get_real_adapter" title="Link to this definition">¶</a></dt>
+<dd><p>Get a <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code> for the given domain from a <code class="docutils literal notranslate"><span class="pre">Container</span></code>.</p>
+<p>The returned adapter will have all of the functions registered to that domain.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">RealAdapter</span><span class="p">,</span> <span class="n">Container</span>
+
+<span class="n">container</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="n">domains</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;orders&quot;</span><span class="p">])</span>
+<span class="n">orders_adapter</span><span class="p">:</span> <span class="n">RealAdapter</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">get_real_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code> that is assigned to the <code class="docutils literal notranslate"><span class="pre">orders_adapter</span></code> variable will have all of the registered read and write I/O functions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.Container.register_domain_read_fn">
+<span class="sig-name descname"><span class="pre">register_domain_read_fn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="headerlink" href="#io_adapters.Container.register_domain_read_fn" title="Link to this definition">¶</a></dt>
+<dd><p>Register a read function to a domain in a <code class="docutils literal notranslate"><span class="pre">Container</span></code>.</p>
+<p>Decorators can be stacked to register the same function to multiple domains.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span>
+
+<span class="n">container</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="n">domains</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;payment&quot;</span><span class="p">])</span>
+
+<span class="nd">@container</span><span class="o">.</span><span class="n">register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_str</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="o">...</span>
+
+
+<span class="nd">@container</span><span class="o">.</span><span class="n">register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="nd">@container</span><span class="o">.</span><span class="n">register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_json</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.Container.register_domain_write_fn">
+<span class="sig-name descname"><span class="pre">register_domain_write_fn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="headerlink" href="#io_adapters.Container.register_domain_write_fn" title="Link to this definition">¶</a></dt>
+<dd><p>Register a write function to a domain in a <code class="docutils literal notranslate"><span class="pre">Container</span></code>.</p>
+<p>Decorators can be stacked to register the same function to multiple domains.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span>
+
+<span class="n">container</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="n">domains</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;orders&quot;</span><span class="p">])</span>
+
+<span class="nd">@container</span><span class="o">.</span><span class="n">register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_str</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="o">...</span>
+
+<span class="n">container</span><span class="o">.</span><span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">)</span>
+
+<span class="nd">@container</span><span class="o">.</span><span class="n">register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="nd">@container</span><span class="o">.</span><span class="n">register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_json</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="io_adapters.FakeAdapter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">FakeAdapter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">read_fns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'json':</span> <span class="pre">&lt;function</span> <span class="pre">read_json&gt;}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_fns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'json':</span> <span class="pre">&lt;function</span> <span class="pre">write_json&gt;}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">guid_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable[[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datetime_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable[[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">~datetime.datetime]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">files</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Data]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">NOTHING</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#io_adapters.FakeAdapter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="io_adapters.html#io_adapters.IoAdapter" title="io_adapters._adapters.IoAdapter"><code class="xref py py-class docutils literal notranslate"><span class="pre">IoAdapter</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="io_adapters.FakeAdapter.files">
+<span class="sig-name descname"><span class="pre">files</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Data</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#io_adapters.FakeAdapter.files" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.FakeAdapter.get_datetime">
+<span class="sig-name descname"><span class="pre">get_datetime</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">datetime</span></span></span><a class="headerlink" href="#io_adapters.FakeAdapter.get_datetime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.FakeAdapter.get_guid">
+<span class="sig-name descname"><span class="pre">get_guid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#io_adapters.FakeAdapter.get_guid" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">IoAdapter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">read_fns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'json':</span> <span class="pre">&lt;function</span> <span class="pre">read_json&gt;}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_fns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'json':</span> <span class="pre">&lt;function</span> <span class="pre">write_json&gt;}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">guid_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable[[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datetime_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable[[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">~datetime.datetime]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#io_adapters.IoAdapter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.datetime_fn">
+<span class="sig-name descname"><span class="pre">datetime_fn</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">datetime</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#io_adapters.IoAdapter.datetime_fn" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.get_datetime">
+<span class="sig-name descname"><span class="pre">get_datetime</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">datetime</span></span></span><a class="headerlink" href="#io_adapters.IoAdapter.get_datetime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.get_guid">
+<span class="sig-name descname"><span class="pre">get_guid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#io_adapters.IoAdapter.get_guid" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.guid_fn">
+<span class="sig-name descname"><span class="pre">guid_fn</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#io_adapters.IoAdapter.guid_fn" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Data</span></span></span><a class="headerlink" href="#io_adapters.IoAdapter.read" title="Link to this definition">¶</a></dt>
+<dd><p>Read <cite>path</cite> using the registered function for <cite>file_type</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>NotImplementedError</strong> – If the given <cite>file_type</cite> does not have a registered function.</p>
+</dd>
+</dl>
+<section id="usage">
+<h3>Usage<a class="headerlink" href="#usage" title="Link to this heading">¶</a></h3>
+<p>Here the <code class="docutils literal notranslate"><span class="pre">read_json</span></code> function is registered with the <code class="docutils literal notranslate"><span class="pre">register_read_fn</span></code> decorator.</p>
+<p>Then when the <code class="docutils literal notranslate"><span class="pre">adapter</span></code> object calls <code class="docutils literal notranslate"><span class="pre">read</span></code> with the <code class="docutils literal notranslate"><span class="pre">&quot;json&quot;</span></code> <code class="docutils literal notranslate"><span class="pre">file_type</span></code> it will use the registered function.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">key</span></code> used to register the function doesn’t have to be a string, as long as it’s <code class="docutils literal notranslate"><span class="pre">Hashable</span></code> it can be used.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">RealAdapter</span><span class="p">,</span> <span class="n">register_read_fn</span>
+
+<span class="nd">@register_read_fn</span><span class="p">(</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_json</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<span class="n">adapter</span> <span class="o">=</span> <span class="n">RealAdapter</span><span class="p">()</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.read_fns">
+<span class="sig-name descname"><span class="pre">read_fns</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MappingProxyType</span></span><a class="headerlink" href="#io_adapters.IoAdapter.read_fns" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#io_adapters.IoAdapter.write" title="Link to this definition">¶</a></dt>
+<dd><p>Write <cite>data</cite> to <cite>path</cite> using the registered function for <cite>file_type</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>NotImplementedError</strong> – If the given <cite>file_type</cite> does not have a registered function.</p>
+</dd>
+</dl>
+<section id="id3">
+<h3>Usage<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>Here the <code class="docutils literal notranslate"><span class="pre">write_json</span></code> function is registered with the <code class="docutils literal notranslate"><span class="pre">register_write_fn</span></code> decorator.</p>
+<p>Then when the <code class="docutils literal notranslate"><span class="pre">adapter</span></code> object calls <code class="docutils literal notranslate"><span class="pre">write</span></code> with the <code class="docutils literal notranslate"><span class="pre">WriteFormat.JSON</span></code> <code class="docutils literal notranslate"><span class="pre">file_type</span></code> it will use the registered function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">RealAdapter</span><span class="p">,</span> <span class="n">register_write_fn</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">WriteFormat</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">JSON</span> <span class="o">=</span> <span class="s2">&quot;json&quot;</span>
+
+<span class="nd">@register_write_fn</span><span class="p">(</span><span class="n">WriteFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_json</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+
+<span class="n">adapter</span> <span class="o">=</span> <span class="n">RealAdapter</span><span class="p">()</span>
+<span class="n">adapter</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">,</span> <span class="n">WriteFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+
+<span class="n">fake_adapter</span> <span class="o">=</span> <span class="n">FakeAdapter</span><span class="p">()</span>
+<span class="n">fake_adapter</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">,</span> <span class="n">WriteFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The interfaces between the <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> and the <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code> means that the two can be passed in interchangeably, making testing much easier</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">some_usecase</span><span class="p">(</span><span class="n">adapter</span><span class="p">:</span> <span class="n">IoAdapter</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># Some business logic</span>
+
+    <span class="n">adapter</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="n">path</span><span class="p">,</span> <span class="n">WriteFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+
+<span class="c1"># in production inject the real adapter</span>
+<span class="n">some_usecase</span><span class="p">(</span><span class="n">RealAdapter</span><span class="p">(),</span> <span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">)</span>
+
+<span class="c1"># in testing inject the fake and assert that the fakes end state is as expected</span>
+<span class="n">fake</span> <span class="o">=</span> <span class="n">FakeAdapter</span><span class="p">()</span>
+<span class="n">some_usecase</span><span class="p">(</span><span class="n">fake</span><span class="p">,</span> <span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">fake</span><span class="o">.</span><span class="n">files</span><span class="p">[</span><span class="s2">&quot;some/path/to/file.json&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="io_adapters.IoAdapter.write_fns">
+<span class="sig-name descname"><span class="pre">write_fns</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MappingProxyType</span></span><a class="headerlink" href="#io_adapters.IoAdapter.write_fns" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="io_adapters.RealAdapter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">RealAdapter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">read_fns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'json':</span> <span class="pre">&lt;function</span> <span class="pre">read_json&gt;}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_fns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'json':</span> <span class="pre">&lt;function</span> <span class="pre">write_json&gt;}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">guid_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable[[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datetime_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable[[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">~datetime.datetime]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#io_adapters.RealAdapter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="io_adapters.html#io_adapters.IoAdapter" title="io_adapters._adapters.IoAdapter"><code class="xref py py-class docutils literal notranslate"><span class="pre">IoAdapter</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="io_adapters.add_domain">
+<span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">add_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#io_adapters.add_domain" title="Link to this definition">¶</a></dt>
+<dd><p>Add a domain to the default <code class="docutils literal notranslate"><span class="pre">Container</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_domain</span>
+
+<span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">orders</span></code> domain is now added to the default <code class="docutils literal notranslate"><span class="pre">Container</span></code> and can have IO functions registered to it.</p>
+<p>Relying on deliberate registering of a domain avoids situations where a typo could register a function to a non-existent domain: e.g. <code class="docutils literal notranslate"><span class="pre">'ordesr'</span></code> instead of the intended <code class="docutils literal notranslate"><span class="pre">'orders'</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="io_adapters.get_fake_adapter">
+<span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">get_fake_adapter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">files</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="io_adapters.html#io_adapters.FakeAdapter" title="io_adapters._adapters.FakeAdapter"><span class="pre">FakeAdapter</span></a></span></span><a class="headerlink" href="#io_adapters.get_fake_adapter" title="Link to this definition">¶</a></dt>
+<dd><p>Get a <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> for the given domain.</p>
+<p>The returned adapter will have all of the functions registered to that domain.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeAdapter</span><span class="p">,</span> <span class="n">get_fake_adapter</span>
+
+<span class="n">orders_adapter</span><span class="p">:</span> <span class="n">FakeAdapter</span> <span class="o">=</span> <span class="n">get_fake_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code> that is assigned to the <code class="docutils literal notranslate"><span class="pre">orders_adapter</span></code> variable will have fake representations for all of the registered read and write I/O functions.</p>
+<p>This can optionally be given a dictionary of files to setup the initial state for testing. An example of how this could be used is below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeAdapter</span><span class="p">,</span> <span class="n">get_fake_adapter</span>
+
+<span class="n">starting_files</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;path/to/data.json&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}}</span>
+
+<span class="n">orders_adapter</span><span class="p">:</span> <span class="n">FakeAdapter</span> <span class="o">=</span> <span class="n">get_fake_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="n">starting_files</span><span class="p">)</span>
+
+<span class="n">some_orders_usecase</span><span class="p">(</span><span class="n">adapter</span><span class="o">=</span><span class="n">orders_adapter</span><span class="p">,</span> <span class="n">data_path</span><span class="o">=</span><span class="s2">&quot;path/to/data.json&quot;</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">orders_adapter</span><span class="o">.</span><span class="n">files</span><span class="p">[</span><span class="s2">&quot;path/to/modified_data.json&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="io_adapters.get_real_adapter">
+<span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">get_real_adapter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="io_adapters.html#io_adapters.RealAdapter" title="io_adapters._adapters.RealAdapter"><span class="pre">RealAdapter</span></a></span></span><a class="headerlink" href="#io_adapters.get_real_adapter" title="Link to this definition">¶</a></dt>
+<dd><p>Get a <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code> for the given domain.</p>
+<p>The returned adapter will have all of the functions registered to that domain.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">RealAdapter</span><span class="p">,</span> <span class="n">get_real_adapter</span>
+
+<span class="n">orders_adapter</span><span class="p">:</span> <span class="n">RealAdapter</span> <span class="o">=</span> <span class="n">get_real_adapter</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code> that is assigned to the <code class="docutils literal notranslate"><span class="pre">orders_adapter</span></code> variable will have all of the registered read and write I/O functions.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="io_adapters.register_domain_read_fn">
+<span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">register_domain_read_fn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="headerlink" href="#io_adapters.register_domain_read_fn" title="Link to this definition">¶</a></dt>
+<dd><p>Register a read function to a domain in the default <code class="docutils literal notranslate"><span class="pre">Container</span></code>.</p>
+<p>Decorators can be stacked to register the same function to multiple domains.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_domain</span><span class="p">,</span> <span class="n">register_domain_read_fn</span>
+
+<span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+
+<span class="nd">@register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_str</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="o">...</span>
+
+<span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">)</span>
+
+<span class="nd">@register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="nd">@register_domain_read_fn</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_json</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="io_adapters.register_domain_write_fn">
+<span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">register_domain_write_fn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="headerlink" href="#io_adapters.register_domain_write_fn" title="Link to this definition">¶</a></dt>
+<dd><p>Register a write function to a domain in the default <code class="docutils literal notranslate"><span class="pre">Container</span></code>.</p>
+<p>Decorators can be stacked to register the same function to multiple domains.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_domain</span><span class="p">,</span> <span class="n">register_domain_write_fn</span>
+
+<span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">)</span>
+
+<span class="nd">@register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_str</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="o">...</span>
+
+<span class="n">add_domain</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">)</span>
+
+<span class="nd">@register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="nd">@register_domain_write_fn</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_json</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="io_adapters.register_read_fn">
+<span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">register_read_fn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="headerlink" href="#io_adapters.register_read_fn" title="Link to this definition">¶</a></dt>
+<dd><p>Register a read function to the read functions constant.</p>
+<p>This is useful for smaller projects where domain isolation isn’t required.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">RealAdapter</span><span class="p">,</span> <span class="n">register_read_fn</span>
+
+<span class="nd">@register_read_fn</span><span class="p">(</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_json</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>This function will be accessible when you initialise a <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code></dt><dd><p>and a stub of the functionality will be added to a <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="io_adapters.register_write_fn">
+<span class="sig-prename descclassname"><span class="pre">io_adapters.</span></span><span class="sig-name descname"><span class="pre">register_write_fn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hashable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="headerlink" href="#io_adapters.register_write_fn" title="Link to this definition">¶</a></dt>
+<dd><p>Register a write function to the write functions constant.</p>
+<p>This is useful for smaller projects where domain isolation isn’t required.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">io_adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">RealAdapter</span><span class="p">,</span> <span class="n">register_write_fn</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">WriteFormat</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">JSON</span> <span class="o">=</span> <span class="s2">&quot;json&quot;</span>
+
+<span class="nd">@register_write_fn</span><span class="p">(</span><span class="n">WriteFormat</span><span class="o">.</span><span class="n">JSON</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_json</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>This function will be accessible when you initialise a <code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code></dt><dd><p>and a stub of the functionality will be added to a <code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="#">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">io-adapters documentation</a><ul>
+<li><a class="reference internal" href="#motivation">Motivation</a></li>
+<li><a class="reference internal" href="#example">Example</a><ul>
+<li><a class="reference internal" href="#io_adapters.Container"><code class="docutils literal notranslate"><span class="pre">Container</span></code></a><ul>
+<li><a class="reference internal" href="#io_adapters.Container.add_domain"><code class="docutils literal notranslate"><span class="pre">Container.add_domain()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.Container.domain_fns"><code class="docutils literal notranslate"><span class="pre">Container.domain_fns</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.Container.domains"><code class="docutils literal notranslate"><span class="pre">Container.domains</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.Container.get_fake_adapter"><code class="docutils literal notranslate"><span class="pre">Container.get_fake_adapter()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.Container.get_real_adapter"><code class="docutils literal notranslate"><span class="pre">Container.get_real_adapter()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.Container.register_domain_read_fn"><code class="docutils literal notranslate"><span class="pre">Container.register_domain_read_fn()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.Container.register_domain_write_fn"><code class="docutils literal notranslate"><span class="pre">Container.register_domain_write_fn()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#io_adapters.FakeAdapter"><code class="docutils literal notranslate"><span class="pre">FakeAdapter</span></code></a><ul>
+<li><a class="reference internal" href="#io_adapters.FakeAdapter.files"><code class="docutils literal notranslate"><span class="pre">FakeAdapter.files</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.FakeAdapter.get_datetime"><code class="docutils literal notranslate"><span class="pre">FakeAdapter.get_datetime()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.FakeAdapter.get_guid"><code class="docutils literal notranslate"><span class="pre">FakeAdapter.get_guid()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter"><code class="docutils literal notranslate"><span class="pre">IoAdapter</span></code></a><ul>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.datetime_fn"><code class="docutils literal notranslate"><span class="pre">IoAdapter.datetime_fn</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.get_datetime"><code class="docutils literal notranslate"><span class="pre">IoAdapter.get_datetime()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.get_guid"><code class="docutils literal notranslate"><span class="pre">IoAdapter.get_guid()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.guid_fn"><code class="docutils literal notranslate"><span class="pre">IoAdapter.guid_fn</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.read"><code class="docutils literal notranslate"><span class="pre">IoAdapter.read()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.read_fns"><code class="docutils literal notranslate"><span class="pre">IoAdapter.read_fns</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.write"><code class="docutils literal notranslate"><span class="pre">IoAdapter.write()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.IoAdapter.write_fns"><code class="docutils literal notranslate"><span class="pre">IoAdapter.write_fns</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#io_adapters.RealAdapter"><code class="docutils literal notranslate"><span class="pre">RealAdapter</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.add_domain"><code class="docutils literal notranslate"><span class="pre">add_domain()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.get_fake_adapter"><code class="docutils literal notranslate"><span class="pre">get_fake_adapter()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.get_real_adapter"><code class="docutils literal notranslate"><span class="pre">get_real_adapter()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.register_domain_read_fn"><code class="docutils literal notranslate"><span class="pre">register_domain_read_fn()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.register_domain_write_fn"><code class="docutils literal notranslate"><span class="pre">register_domain_write_fn()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.register_read_fn"><code class="docutils literal notranslate"><span class="pre">register_read_fn()</span></code></a></li>
+<li><a class="reference internal" href="#io_adapters.register_write_fn"><code class="docutils literal notranslate"><span class="pre">register_write_fn()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">io-adapters 2025 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">io-adapters documentation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Ed Cuss.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.0.4.
+    </div>
+  </body>
+</html>
