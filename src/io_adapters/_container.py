@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Hashable, Iterable
 from enum import Enum, auto
+from typing import TypeAlias
 
 import attrs
 from attrs.validators import deep_iterable, instance_of
@@ -16,6 +17,9 @@ logger = logging.getLogger(__name__)
 class _FnType(Enum):
     READ = auto()
     WRITE = auto()
+
+
+DomainFns: TypeAlias = dict[Hashable, dict[Hashable, Callable]]
 
 
 @attrs.define
@@ -92,10 +96,12 @@ class Container:
     """
 
     domains: Iterable = attrs.field(validator=deep_iterable(member_validator=instance_of(Hashable)))
-    domain_fns: dict[Hashable, dict[Hashable, Callable]] = attrs.field(init=False)
+    domain_fns: DomainFns = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
-        self.domain_fns = {domain: {_FnType.READ: {}, _FnType.WRITE: {}} for domain in self.domains}
+        self.domain_fns: DomainFns = {
+            domain: {_FnType.READ: {}, _FnType.WRITE: {}} for domain in self.domains
+        }
 
     def add_domain(self, domain: Hashable) -> None:
         """Add a domain to a ``Container``

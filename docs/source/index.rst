@@ -92,7 +92,7 @@ Example
     some_usecase(orders_adapter, "some/path/to/file.json")
 
 
-    # in testing inject the fake which has all the same funcitonality as the 
+    # in testing inject the fake which has all the same funcitonality as the
     # `RealAdapter` and assert that the fakes end state is as expected
     fake_adapter = get_fake_adapter("orders")
     some_usecase(fake_adapter, "some/path/to/file.json")
