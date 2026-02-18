@@ -18,7 +18,7 @@ READ_FNS: dict[Hashable, ReadFn] = {}
 WRITE_FNS: dict[Hashable, WriteFn] = {}
 
 
-def register_read_fn(key: Hashable) -> Callable[[Callable[P, Data]], Callable[P, Data]]:
+def register_read_fn(key: Hashable) -> Callable[[ReadFn], ReadFn]:
     """Register a read function to the read functions constant.
 
     This is useful for smaller projects where domain isolation isn't required.
@@ -36,7 +36,7 @@ def register_read_fn(key: Hashable) -> Callable[[Callable[P, Data]], Callable[P,
     """
     key = standardise_key(key)
 
-    def wrapper(func: Callable[P, Data]) -> Callable[P, Data]:
+    def wrapper(func: ReadFn) -> ReadFn:
         logger.info(f"registering read fn {key = } {func = }")
         READ_FNS[key] = func
         return func
@@ -44,7 +44,7 @@ def register_read_fn(key: Hashable) -> Callable[[Callable[P, Data]], Callable[P,
     return wrapper
 
 
-def register_write_fn(key: Hashable) -> Callable[[Callable[P, Data]], Callable[P, Data]]:
+def register_write_fn(key: Hashable) -> Callable[[WriteFn], WriteFn]:
     """Register a write function to the write functions constant.
 
     This is useful for smaller projects where domain isolation isn't required.
@@ -66,7 +66,7 @@ def register_write_fn(key: Hashable) -> Callable[[Callable[P, Data]], Callable[P
     """
     key = standardise_key(key)
 
-    def wrapper(func: Callable[P, Data]) -> Callable[P, Data]:
+    def wrapper(func: WriteFn) -> WriteFn:
         logger.info(f"registering write fn {key = } {func = }")
         WRITE_FNS[key] = func
         return func
