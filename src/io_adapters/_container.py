@@ -9,7 +9,7 @@ import attrs
 from attrs.validators import deep_iterable, instance_of
 
 from io_adapters import FakeAdapter, RealAdapter
-from io_adapters._registries import standardise_key
+from io_adapters._registries import ReadFn, WriteFn, standardise_key
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class _FnType(Enum):
     WRITE = auto()
 
 
-DomainFns: TypeAlias = dict[Hashable, dict[Hashable, Callable]]
+DomainFns: TypeAlias = dict[Hashable, dict[Hashable, ReadFn | WriteFn]]
 
 
 @attrs.define
@@ -150,7 +150,7 @@ class Container:
         domain = standardise_key(domain)
         key = standardise_key(key)
 
-        def wrapper(func: Callable) -> Callable:
+        def wrapper(func: ReadFn) -> ReadFn:
             logger.info(f"registering read fn {key = } {func = }")
             self.domain_fns[domain][_FnType.READ][key] = func
             return func
@@ -182,7 +182,7 @@ class Container:
         domain = standardise_key(domain)
         key = standardise_key(key)
 
-        def wrapper(func: Callable) -> Callable:
+        def wrapper(func: WriteFn) -> WriteFn:
             logger.info(f"registering read fn {key = } {func = }")
             self.domain_fns[domain][_FnType.WRITE][key] = func
             return func
@@ -265,7 +265,7 @@ def add_domain(domain: Hashable) -> None:
     return DEFAULT_CONTAINER.add_domain(domain)
 
 
-def register_domain_read_fn(domain: Hashable, key: Hashable) -> Callable:
+def register_domain_read_fn(domain: Hashable, key: Hashable) -> ReadFn:
     """Register a read function to a domain in the default ``Container``.
 
     Decorators can be stacked to register the same function to multiple domains.
@@ -290,7 +290,7 @@ def register_domain_read_fn(domain: Hashable, key: Hashable) -> Callable:
     return DEFAULT_CONTAINER.register_domain_read_fn(domain, key)
 
 
-def register_domain_write_fn(domain: Hashable, key: Hashable) -> Callable:
+def register_domain_write_fn(domain: Hashable, key: Hashable) -> WriteFn:
     """Register a write function to a domain in the default ``Container``.
 
     Decorators can be stacked to register the same function to multiple domains.
