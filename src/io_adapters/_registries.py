@@ -3,15 +3,15 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Hashable
 from pathlib import Path
-from typing import Concatenate, ParamSpec, TypeAlias
+from typing import Concatenate, ParamSpec, TypeAlias, TypeVar
 
 logger = logging.getLogger(__name__)
 
-Data: TypeAlias = "Data"
+Data = TypeVar("Data")
 P = ParamSpec("P")
 
-ReadFn = Callable[Concatenate[str | Path, P], Data]
-WriteFn = Callable[Concatenate[Data, str | Path, P], None]
+ReadFn: TypeAlias = Callable[Concatenate[str | Path, P], Data]
+WriteFn: TypeAlias = Callable[Concatenate[Data, str | Path, P], None]
 
 
 READ_FNS: dict[Hashable, ReadFn] = {}
