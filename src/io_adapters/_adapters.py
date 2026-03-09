@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import datetime
 import logging
+import shutil
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Hashable
+from copy import deepcopy
+from fnmatch import fnmatch
 from pathlib import Path
 from types import MappingProxyType
 
@@ -16,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @attrs.define
-class IoAdapter:
+class IoAdapter(ABC):
     read_fns: MappingProxyType[Hashable, ReadFn] = attrs.field(
         default=READ_FNS,
         validator=[
@@ -147,12 +151,43 @@ class IoAdapter:
     def get_datetime(self) -> datetime.datetime:
         return self.datetime_fn()
 
+    @abstractmethod
+    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[str]: ...
+
+    @abstractmethod
+    def copy_file(self, old: str | Path, new: str | Path) -> None: ...
+
+    @abstractmethod
+    def delete_file(self, path: str | Path, *, missing_ok: bool = True) -> None: ...
+
+    def move_file(self, old: str | Path, new: str | Path) -> None:
+        self.copy_file(old, new)
+        self.delete_file(old)
+
+    @abstractmethod
+    def exists(self, path: str | Path) -> bool: ...
+
 
 @attrs.define
 class RealAdapter(IoAdapter):
     def __attrs_post_init__(self) -> None:
         self.guid_fn = self.guid_fn or default_guid
         self.datetime_fn = self.datetime_fn or default_datetime
+
+    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[str]:
+        return sorted(map(str, Path(path).rglob(glob_pattern)))
+
+    def copy_file(self, old: str | Path, new: str | Path) -> None:
+        src = Path(old)
+        dst = Path(new)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+    def delete_file(self, path: str | Path, *, missing_ok: bool = True) -> None:
+        Path(path).unlink(missing_ok=missing_ok)
+
+    def exists(self, path: str | Path) -> bool:
+        return Path(path).exists()
 
 
 @attrs.define
@@ -174,8 +209,26 @@ class FakeAdapter(IoAdapter):
     def _write_fn(self, data: Data, path: str | Path) -> None:
         self.files[str(path)] = data
 
-    def get_guid(self) -> str:
-        return self.guid_fn()
+    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[str]:
+        return sorted(
+            [
+                str(p)
+                for p in self.files
+                if Path(p).is_relative_to(Path(path)) and fnmatch(Path(p).name, glob_pattern)
+            ]
+        )
 
-    def get_datetime(self) -> datetime.datetime:
-        return self.datetime_fn()
+    def copy_file(self, old: str | Path, new: str | Path) -> None:
+        self.files[str(new)] = deepcopy(self.files[str(old)])
+
+    def delete_file(self, path: str | Path, *, missing_ok: bool = True) -> None:
+        path = str(Path(path))
+
+        try:
+            self.files.pop(path)
+        except KeyError as e:
+            if not missing_ok:
+                raise FileNotFoundError(path) from e
+
+    def exists(self, path: str | Path) -> bool:
+        return str(path) in map(str, self.files)

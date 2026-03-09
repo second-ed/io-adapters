@@ -1,4 +1,5 @@
 import operator
+import shutil
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -8,6 +9,28 @@ from src.io_adapters import FakeAdapter, RealAdapter
 
 REPO_ROOT = Path(__file__).parents[1]
 MOCK_DATA_PATH = f"{REPO_ROOT}/tests/mock_data/mock.json"
+FILES = ("__init__.py", "mock.csv", "reqs.txt", "main.py")
+TMP_ROOT = REPO_ROOT.joinpath("tests", "tmp_mock_data")
+INITIAL_FILES = [TMP_ROOT.joinpath(x) for x in FILES]
+
+
+@pytest.fixture(autouse=True)
+def setup():
+    for f in INITIAL_FILES:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.joinpath(f).touch()
+
+    yield
+
+    shutil.rmtree(TMP_ROOT)
+
+
+ADAPTERS = [
+    pytest.param(RealAdapter(), id="using a RealAdapter"),
+    pytest.param(
+        FakeAdapter(files=dict.fromkeys(map(str, INITIAL_FILES), "")), id="using a FakeAdapter"
+    ),
+]
 
 
 @pytest.mark.parametrize(
@@ -73,3 +96,88 @@ def test_guid(adapter, op):
 )
 def test_datetime(adapter, op):
     assert op(adapter().get_datetime(), adapter().get_datetime())
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize(
+    ("path", "glob_pattern", "expected_result"),
+    [
+        pytest.param(
+            TMP_ROOT,
+            "*",
+            [
+                f"{TMP_ROOT}/__init__.py",
+                f"{TMP_ROOT}/main.py",
+                f"{TMP_ROOT}/mock.csv",
+                f"{TMP_ROOT}/reqs.txt",
+            ],
+            id="get all files",
+        ),
+        pytest.param(
+            TMP_ROOT,
+            "*.py",
+            [f"{TMP_ROOT}/__init__.py", f"{TMP_ROOT}/main.py"],
+            id="glob .py files",
+        ),
+    ],
+)
+def test_list_files(adapter, path, glob_pattern, expected_result):
+    assert adapter.list_files(path, glob_pattern) == expected_result
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        pytest.param(
+            f"{TMP_ROOT}/__init__.py",
+            f"{TMP_ROOT}/new_init.py",
+            id="both old and new exist after copy",
+        ),
+    ],
+)
+def test_copy_file(adapter, old, new):
+    adapter.copy_file(old, new)
+    assert adapter.exists(old)
+    assert adapter.exists(new)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        pytest.param(
+            f"{TMP_ROOT}/__init__.py",
+            f"{TMP_ROOT}/new_init.py",
+            id="old not exists and new exists after move",
+        ),
+    ],
+)
+def test_move_file(adapter, old, new):
+    adapter.move_file(old, new)
+    assert not adapter.exists(old)
+    assert adapter.exists(new)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize(
+    ("path", "missing_ok", "expected_context"),
+    [
+        pytest.param(
+            f"{TMP_ROOT}/__init__.py",
+            True,
+            nullcontext(),
+            id="file is deleted after delete",
+        ),
+        pytest.param(
+            f"{TMP_ROOT}/INVALID_FILE.py",
+            False,
+            pytest.raises(FileNotFoundError),
+            id="file is deleted after delete",
+        ),
+    ],
+)
+def test_delete_file(adapter, path, missing_ok, expected_context):
+    with expected_context:
+        adapter.delete_file(path, missing_ok=missing_ok)
+        assert not adapter.exists(path)
