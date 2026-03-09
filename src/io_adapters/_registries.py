@@ -3,22 +3,22 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Hashable
 from pathlib import Path
-from typing import Concatenate, ParamSpec, TypeAlias
+from typing import Concatenate, ParamSpec, TypeAlias, TypeVar
 
 logger = logging.getLogger(__name__)
 
-Data: TypeAlias = "Data"
+Data = TypeVar("Data")
 P = ParamSpec("P")
 
-ReadFn = Callable[Concatenate[str | Path, P], Data]
-WriteFn = Callable[Concatenate[Data, str | Path, P], None]
+ReadFn: TypeAlias = Callable[Concatenate[str | Path, P], Data]
+WriteFn: TypeAlias = Callable[Concatenate[Data, str | Path, P], None]
 
 
 READ_FNS: dict[Hashable, ReadFn] = {}
 WRITE_FNS: dict[Hashable, WriteFn] = {}
 
 
-def register_read_fn(key: Hashable) -> Callable:
+def register_read_fn(key: Hashable) -> Callable[[ReadFn], ReadFn]:
     """Register a read function to the read functions constant.
 
     This is useful for smaller projects where domain isolation isn't required.
@@ -36,7 +36,7 @@ def register_read_fn(key: Hashable) -> Callable:
     """
     key = standardise_key(key)
 
-    def wrapper(func: Callable) -> Callable:
+    def wrapper(func: ReadFn) -> ReadFn:
         logger.info(f"registering read fn {key = } {func = }")
         READ_FNS[key] = func
         return func
@@ -44,7 +44,7 @@ def register_read_fn(key: Hashable) -> Callable:
     return wrapper
 
 
-def register_write_fn(key: Hashable) -> Callable:
+def register_write_fn(key: Hashable) -> Callable[[WriteFn], WriteFn]:
     """Register a write function to the write functions constant.
 
     This is useful for smaller projects where domain isolation isn't required.
@@ -66,7 +66,7 @@ def register_write_fn(key: Hashable) -> Callable:
     """
     key = standardise_key(key)
 
-    def wrapper(func: Callable) -> Callable:
+    def wrapper(func: WriteFn) -> WriteFn:
         logger.info(f"registering write fn {key = } {func = }")
         WRITE_FNS[key] = func
         return func
