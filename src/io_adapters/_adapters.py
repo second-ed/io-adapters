@@ -152,7 +152,7 @@ class IoAdapter(ABC):
         return self.datetime_fn()
 
     @abstractmethod
-    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[str]: ...
+    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[Path]: ...
 
     @abstractmethod
     def copy_file(self, old: str | Path, new: str | Path) -> None: ...
@@ -174,8 +174,8 @@ class RealAdapter(IoAdapter):
         self.guid_fn = self.guid_fn or default_guid
         self.datetime_fn = self.datetime_fn or default_datetime
 
-    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[str]:
-        return sorted(map(str, Path(path).rglob(glob_pattern)))
+    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[Path]:
+        return sorted(Path(path).rglob(glob_pattern))
 
     def copy_file(self, old: str | Path, new: str | Path) -> None:
         src = Path(old)
@@ -190,9 +190,19 @@ class RealAdapter(IoAdapter):
         return Path(path).exists()
 
 
+def _convert_file_mapping(files: dict[str | Path, Data]) -> dict[Path, Data]:
+    return {Path(k).resolve(): v for k, v in files.items()}
+
+
 @attrs.define
 class FakeAdapter(IoAdapter):
-    files: dict[str, Data] = attrs.field(factory=dict, validator=instance_of(dict))
+    files: dict[Path, Data] = attrs.field(
+        factory=dict,
+        validator=deep_mapping(
+            key_validator=instance_of(Path), mapping_validator=instance_of(dict)
+        ),
+        converter=_convert_file_mapping,
+    )
 
     def __attrs_post_init__(self) -> None:
         self.read_fns = MappingProxyType(dict.fromkeys(self.read_fns.keys(), self._read_fn))
@@ -202,28 +212,29 @@ class FakeAdapter(IoAdapter):
 
     def _read_fn(self, path: str | Path) -> Data:
         try:
-            return self.files[str(path)]
+            return self.files[Path(path).resolve()]
         except KeyError as e:
             raise FileNotFoundError(f"{path = } {self.files = }") from e
 
     def _write_fn(self, data: Data, path: str | Path) -> None:
-        self.files[str(path)] = data
+        self.files[Path(path).resolve()] = data
 
-    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[str]:
+    def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[Path]:
         return sorted(
             [
-                str(p)
+                p
                 for p in self.files
                 if Path(p).is_relative_to(Path(path)) and fnmatch(Path(p).name, glob_pattern)
             ]
         )
 
     def copy_file(self, old: str | Path, new: str | Path) -> None:
-        self.files[str(new)] = deepcopy(self.files[str(old)])
+        old = Path(old).resolve()
+        new = Path(new).resolve()
+        self.files[new] = deepcopy(self.files[old])
 
     def delete_file(self, path: str | Path, *, missing_ok: bool = True) -> None:
-        path = str(Path(path))
-
+        path = Path(path).resolve()
         try:
             self.files.pop(path)
         except KeyError as e:
@@ -231,4 +242,4 @@ class FakeAdapter(IoAdapter):
                 raise FileNotFoundError(path) from e
 
     def exists(self, path: str | Path) -> bool:
-        return str(path) in map(str, self.files)
+        return Path(path).resolve() in map(Path, self.files)
