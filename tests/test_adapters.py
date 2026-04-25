@@ -181,3 +181,13 @@ def test_delete_file(adapter, path, missing_ok, expected_context):
     with expected_context:
         adapter.delete_file(path, missing_ok=missing_ok)
         assert not adapter.exists(path)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+def test_write_then_list(adapter):
+    adapter.write(
+        {"a": 0, "b": 1}, f"{TMP_ROOT}/pending/20260425_211300_000.json", "json", default=str
+    )
+    assert adapter.list_files(f"{TMP_ROOT}/pending") == [
+        Path(f"{TMP_ROOT}/pending/20260425_211300_000.json")
+    ]
