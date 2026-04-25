@@ -210,13 +210,13 @@ class FakeAdapter(IoAdapter):
         self.guid_fn = self.guid_fn or fake_guid
         self.datetime_fn = self.datetime_fn or fake_datetime
 
-    def _read_fn(self, path: str | Path) -> Data:
+    def _read_fn(self, path: str | Path, **_kwargs: dict) -> Data:
         try:
             return self.files[Path(path).resolve()]
         except KeyError as e:
             raise FileNotFoundError(f"{path = } {self.files = }") from e
 
-    def _write_fn(self, data: Data, path: str | Path) -> None:
+    def _write_fn(self, data: Data, path: str | Path, **_kwargs: dict) -> None:
         self.files[Path(path).resolve()] = data
 
     def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[Path]:
