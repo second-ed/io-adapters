@@ -222,7 +222,7 @@ class FakeAdapter(IoAdapter):
     def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[Path]:
         return sorted(
             [
-                p
+                p.resolve()
                 for p in self.files
                 if Path(p).is_relative_to(Path(path)) and fnmatch(Path(p).name, glob_pattern)
             ]
