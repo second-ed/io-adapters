@@ -224,7 +224,8 @@ class FakeAdapter(IoAdapter):
             [
                 p.resolve()
                 for p in self.files
-                if Path(p).is_relative_to(Path(path)) and fnmatch(Path(p).name, glob_pattern)
+                if Path(p).is_relative_to(Path(path).resolve())
+                and fnmatch(Path(p).name, glob_pattern)
             ]
         )
 
