@@ -4,6 +4,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
+from returns.result import Success, safe
 
 from src.io_adapters import FakeAdapter, RealAdapter
 from src.io_adapters._adapters import _apply_decs
@@ -209,6 +210,55 @@ def test_apply_decs() -> None:
     def blah():
         return None
 
-    _apply_decs(lambda x: x, [append(fn_lst, 1), append(fn_lst, 2)])
+    _apply_decs(fn=lambda x: x, decs=(append(fn_lst, 1), append(fn_lst, 2)))
 
     assert dec_lst == fn_lst
+
+
+@safe
+def safe_read_py_file(path: str) -> str:
+    return Path(path).read_text()
+
+
+def read_py_file(path: str) -> str:
+    return Path(path).read_text()
+
+
+SAFE_FNS = {"safe_py": safe_read_py_file, "py": read_py_file}
+
+
+@pytest.mark.parametrize(
+    ("adapter", "file_type", "expected_result"),
+    [
+        pytest.param(
+            RealAdapter(read_fns=SAFE_FNS),
+            "safe_py",
+            Success(""),
+            id="reads file with monad using a RealAdapter",
+        ),
+        pytest.param(
+            RealAdapter(read_fns=SAFE_FNS), "py", "", id="reads file normally using a RealAdapter"
+        ),
+        pytest.param(
+            FakeAdapter(
+                files=dict.fromkeys(map(str, INITIAL_FILES), ""),
+                read_fns=SAFE_FNS,
+                read_decs=[safe],
+            ),
+            "safe_py",
+            Success(""),
+            id="reads file with monad using a FakeAdapter",
+        ),
+        pytest.param(
+            FakeAdapter(
+                files=dict.fromkeys(map(str, INITIAL_FILES), ""),
+                read_fns=SAFE_FNS,
+            ),
+            "py",
+            "",
+            id="reads file normally using a FakeAdapter",
+        ),
+    ],
+)
+def test_adapters_with_decs(adapter, file_type, expected_result):
+    assert adapter.read(INITIAL_FILES[0], file_type) == expected_result
