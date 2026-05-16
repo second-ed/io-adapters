@@ -11,7 +11,7 @@ from pathlib import Path
 from types import MappingProxyType
 
 import attrs
-from attrs.validators import deep_mapping, instance_of, is_callable, optional
+from attrs.validators import deep_iterable, deep_mapping, instance_of, is_callable, optional
 
 from io_adapters._clock import default_datetime, default_guid, fake_datetime, fake_guid
 from io_adapters._registries import READ_FNS, WRITE_FNS, Data, ReadFn, WriteFn, standardise_key
@@ -203,10 +203,21 @@ class FakeAdapter(IoAdapter):
         ),
         converter=_convert_file_mapping,
     )
+    read_decs: tuple[Callable[..., ReadFn]] = attrs.field(
+        factory=tuple, validator=deep_iterable(is_callable(), instance_of(tuple)), converter=tuple
+    )
+    write_decs: tuple[Callable[..., WriteFn]] = attrs.field(
+        factory=tuple, validator=deep_iterable(is_callable(), instance_of(tuple)), converter=tuple
+    )
 
     def __attrs_post_init__(self) -> None:
-        self.read_fns = MappingProxyType(dict.fromkeys(self.read_fns.keys(), self._read_fn))
-        self.write_fns = MappingProxyType(dict.fromkeys(self.write_fns.keys(), self._write_fn))
+        self.read_fns = MappingProxyType(
+            dict.fromkeys(self.read_fns.keys(), _apply_decs(self._read_fn, self.read_decs))
+        )
+        self.write_fns = MappingProxyType(
+            dict.fromkeys(self.write_fns.keys(), _apply_decs(self._write_fn, self.write_decs))
+        )
+
         self.guid_fn = self.guid_fn or fake_guid
         self.datetime_fn = self.datetime_fn or fake_datetime
 
@@ -244,3 +255,11 @@ class FakeAdapter(IoAdapter):
 
     def exists(self, path: str | Path) -> bool:
         return Path(path).resolve() in map(Path, self.files)
+
+
+def _apply_decs(
+    fn: ReadFn | WriteFn, decs: tuple[Callable[..., ReadFn | WriteFn]]
+) -> ReadFn | WriteFn:
+    for dec in reversed(decs):
+        fn = dec(fn)
+    return fn

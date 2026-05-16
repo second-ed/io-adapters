@@ -24,6 +24,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "repo-mapper-rs>=0.3.0",
+    "returns>=0.27.0",
     "ruff>=0.14.9",
     "sphinx>=9.0.4",
     "ty>=0.0.9",
