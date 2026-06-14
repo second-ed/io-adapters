@@ -1,4 +1,5 @@
 from io_adapters._adapters import FakeAdapter, IoAdapter, RealAdapter
+from io_adapters._clock import FakeClock, RealClock
 from io_adapters._container import (
     Container,
     add_domain,
@@ -13,8 +14,10 @@ from io_adapters._registries import register_read_fn, register_write_fn
 __all__ = [
     "Container",
     "FakeAdapter",
+    "FakeClock",
     "IoAdapter",
     "RealAdapter",
+    "RealClock",
     "add_domain",
     "get_fake_adapter",
     "get_real_adapter",
