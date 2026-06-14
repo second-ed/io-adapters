@@ -134,5 +134,7 @@ assert fake.files["some/path/to/file.json"] == {"a": 1}
 ├── pyproject.toml
 ├── ruff.toml
 └── uv.lock
+
+(generated with repo-mapper-rs)
 ::
 ```
