@@ -13,7 +13,7 @@ from types import MappingProxyType
 import attrs
 from attrs.validators import deep_iterable, deep_mapping, instance_of, is_callable, optional
 
-from io_adapters._clock import default_datetime, default_guid, fake_datetime, fake_guid
+from io_adapters._clock import FakeClock, RealClock, default_guid, fake_guid
 from io_adapters._registries import READ_FNS, WRITE_FNS, Data, ReadFn, WriteFn, standardise_key
 
 logger = logging.getLogger(__name__)
@@ -172,7 +172,7 @@ class IoAdapter(ABC):
 class RealAdapter(IoAdapter):
     def __attrs_post_init__(self) -> None:
         self.guid_fn = self.guid_fn or default_guid
-        self.datetime_fn = self.datetime_fn or default_datetime
+        self.datetime_fn = self.datetime_fn or RealClock().now
 
     def list_files(self, path: str | Path, glob_pattern: str = "*") -> list[Path]:
         return sorted(Path(path).rglob(glob_pattern))
@@ -219,7 +219,10 @@ class FakeAdapter(IoAdapter):
         )
 
         self.guid_fn = self.guid_fn or fake_guid
-        self.datetime_fn = self.datetime_fn or fake_datetime
+        self.datetime_fn = (
+            self.datetime_fn
+            or FakeClock([datetime.datetime(2025, 1, 1, 12, tzinfo=datetime.UTC)]).now
+        )
 
     def _read_fn(self, path: str | Path, **_kwargs: dict) -> Data:
         try:
