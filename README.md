@@ -128,6 +128,7 @@ assert fake.files["some/path/to/file.json"] == {"a": 1}
 │   ├── __init__.py
 │   ├── test_adapters.py
 │   ├── test_adapters_apis.py
+│   ├── test_clock.py
 │   └── test_container.py
 ├── .pre-commit-config.yaml
 ├── README.md
